@@ -1,17 +1,6 @@
 package frc.robot.subsystems;
 
-import static edu.wpi.first.units.Units.Amps;
-import static edu.wpi.first.units.Units.Inches;
-import static edu.wpi.first.units.Units.Rotations;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
-import static edu.wpi.first.units.Units.Second;
-import static edu.wpi.first.units.Units.Volts;
-
-import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
-import com.ctre.phoenix6.configs.MotionMagicConfigs;
-import com.ctre.phoenix6.configs.MotorOutputConfigs;
-import com.ctre.phoenix6.configs.Slot0Configs;
-import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.configs.*;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
@@ -19,10 +8,12 @@ import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.AngleUnit;
 import edu.wpi.first.units.DistanceUnit;
 import edu.wpi.first.units.Measure;
 import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.units.measure.Per;
 import edu.wpi.first.util.sendable.SendableBuilder;
@@ -33,11 +24,13 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Ports;
 import yams.motorcontrollers.SmartMotorControllerConfig;
+import yams.motorcontrollers.remote.TalonFXWrapper;
+
+import static edu.wpi.first.units.Units.*;
 
 public class Hanger extends SubsystemBase {
     public enum Position {
         HOMED(0),
-        EXTEND_HOPPER(2),
         HANGING(6),
         HUNG(0.2);
 
@@ -53,16 +46,19 @@ public class Hanger extends SubsystemBase {
         }
     }
 
+    private static final Distance kExtensionTolerance = Inches.of(1);
     private SmartMotorControllerConfig smcConfig = new SmartMotorControllerConfig()
-            .withClosedLoopController(10,0,0)
-            .withFeedforward( new SimpleMotorFeedforward(0, 12/))
-
-    ;
+            .withClosedLoopController(10, 0, 0, RadiansPerSecond.of(DCMotor.getKrakenX60(1).freeSpeedRadPerSec), RadiansPerSecond.of(DCMotor.getKrakenX60(1).freeSpeedRadPerSec).per(Second))
+            .withFeedforward(new SimpleMotorFeedforward(0, 12 / RadiansPerSecond.of(DCMotor.getKrakenX60(1).freeSpeedRadPerSec).in(RotationsPerSecond)))
+            .withStatorCurrentLimit(Amps.of(20))
+            .withSupplyCurrentLimit(Amps.of(70))
+            .withIdleMode(SmartMotorControllerConfig.MotorMode.BRAKE);
+    private Distance circumference = Inches.of(1);
 
     private static final Per<DistanceUnit, AngleUnit> kHangerExtensionPerMotorAngle = Inches.of(6).div(Rotations.of(142));
-    private static final Distance kExtensionTolerance = Inches.of(1);
 
     private final TalonFX motor;
+    private final TalonFXWrapper motorSMC;
     private final MotionMagicVoltage motionMagicRequest = new MotionMagicVoltage(0).withSlot(0);
     private final VoltageOut voltageRequest = new VoltageOut(0);
 
@@ -70,68 +66,33 @@ public class Hanger extends SubsystemBase {
 
     public Hanger() {
         motor = new TalonFX(Ports.kHanger, Ports.kRoboRioCANBus);
+        motorSMC = new TalonFXWrapper(motor, DCMotor.getKrakenX60(1), smcConfig.clone().withMotorInverted(false));
 
-        final TalonFXConfiguration config = new TalonFXConfiguration()
-            .withMotorOutput(
-                new MotorOutputConfigs()
-                    .withInverted(InvertedValue.Clockwise_Positive)
-                    .withNeutralMode(NeutralModeValue.Brake)
-            )
-            .withCurrentLimits(
-                new CurrentLimitsConfigs()
-                    .withStatorCurrentLimit(Amps.of(20))
-                    .withStatorCurrentLimitEnable(true)
-                    .withSupplyCurrentLimit(Amps.of(70))
-                    .withSupplyCurrentLimitEnable(true)
-            )
-            .withMotionMagic(
-                new MotionMagicConfigs()
-                    .withMotionMagicCruiseVelocity(KrakenX60.kFreeSpeed)
-                    .withMotionMagicAcceleration(KrakenX60.kFreeSpeed.per(Second))
-            )
-            .withSlot0(
-                new Slot0Configs()
-                    .withKP(10)
-                    .withKI(0)
-                    .withKD(0)
-                    .withKV(12.0 / KrakenX60.kFreeSpeed.in(RotationsPerSecond)) // 12 volts when requesting max RPS
-            );
-
-        motor.getConfigurator().apply(config);
-        SmartDashboard.putData(this);
+        //again, this is so ugly
+        (((TalonFX) motorSMC.getMotorController()).getConfigurator()).apply(((TalonFXConfiguration) motorSMC.getMotorControllerConfig()).withVoltage(new VoltageConfigs()
+                .withPeakReverseVoltage(Volts.of(0))));
     }
 
-    public void set(Position position) {
-        motor.setControl(
-            motionMagicRequest
-                .withPosition(position.motorAngle())
-        );
+    private Command setPercentOutput(double percentOutput) {
+        return run(() -> motorSMC.setDutyCycle(percentOutput));
     }
 
-    public void setPercentOutput(double percentOutput) {
-        motor.setControl(
-            voltageRequest
-                .withOutput(Volts.of(percentOutput * 12.0))
-        );
+    public Command setPosition(Angle position) {
+        return run(() -> motorSMC.setPosition(position));
     }
 
-    public Command positionCommand(Position position) {
-        return runOnce(() -> set(position))
-            .andThen(Commands.waitUntil(this::isExtensionWithinTolerance));
-    }
-
+    //havent made yet, this is stock
     public Command homingCommand() {
         return Commands.sequence(
-            runOnce(() -> setPercentOutput(-0.05)),
-            Commands.waitUntil(() -> motor.getSupplyCurrent().getValue().in(Amps) > 0.4),
-            runOnce(() -> {
-                motor.setPosition(Position.HOMED.motorAngle());
-                isHomed = true;
-                set(Position.EXTEND_HOPPER);
-            })
-        )
-        .unless(() -> isHomed)
-        .withInterruptBehavior(InterruptionBehavior.kCancelIncoming);
+                        runOnce(() -> setPercentOutput(-0.05)),
+                        Commands.waitUntil(() -> motor.getSupplyCurrent().getValue().in(Amps) > 0.4),
+                        runOnce(() -> {
+                            motor.setPosition(Position.HOMED.motorAngle());
+                            isHomed = true;
+                        })
+                )
+                .unless(() -> isHomed)
+                .withInterruptBehavior(InterruptionBehavior.kCancelIncoming);
     }
 
     public boolean isHomed() {
@@ -139,9 +100,9 @@ public class Hanger extends SubsystemBase {
     }
 
     private boolean isExtensionWithinTolerance() {
-        final Distance currentExtension = motorAngleToExtension(motor.getPosition().getValue());
-        final Distance targetExtension = motorAngleToExtension(motionMagicRequest.getPositionMeasure());
-        return currentExtension.isNear(targetExtension, kExtensionTolerance);
+        if (motorSMC.getMechanismPositionSetpoint().isEmpty())
+            return false;
+        return motorSMC.getMechanismPosition().isNear(motorSMC.getMechanismPositionSetpoint().orElseThrow(), Rotations.of(kExtensionTolerance.in(Meter) / circumference.in(Meter)));
     }
 
     private Distance motorAngleToExtension(Angle motorAngle) {
@@ -150,9 +111,13 @@ public class Hanger extends SubsystemBase {
     }
 
     @Override
-    public void initSendable(SendableBuilder builder) {
-        builder.addStringProperty("Command", () -> getCurrentCommand() != null ? getCurrentCommand().getName() : "null", null);
-        builder.addDoubleProperty("Extension (inches)", () -> motorAngleToExtension(motor.getPosition().getValue()).in(Inches), null);
-        builder.addDoubleProperty("Supply Current", () -> motor.getSupplyCurrent().getValue().in(Amps), null);
+    public void periodic() {
+        motorSMC.updateTelemetry();
+
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        motorSMC.simIterate();
     }
 }

@@ -47,20 +47,18 @@ public class Feeder extends SubsystemBase {
 
     private final TalonFX motor;
     private final TalonFXWrapper motorSMC;
-    private final VelocityVoltage velocityRequest = new VelocityVoltage(0).withSlot(0);
-    private final VoltageOut voltageRequest = new VoltageOut(0);
 
     public Feeder() {
         motor = new TalonFX(Ports.kFeeder, Ports.kRoboRioCANBus);
-        motorSMC = new TalonFXWrapper(motor,DCMotor.getKrakenX60(1), smcConfig.clone().withMotorInverted(false));
+        motorSMC = new TalonFXWrapper(motor, DCMotor.getKrakenX60(1), smcConfig.clone().withMotorInverted(false));
 
-        var cfg = (TalonFXConfiguration)motorSMC.getMotorControllerConfig();
-        (((TalonFX)motorSMC.getMotorController()).getConfigurator()).apply(cfg.withVoltage(new VoltageConfigs()
+        //this is so uglyyy
+        (((TalonFX) motorSMC.getMotorController()).getConfigurator()).apply(((TalonFXConfiguration) motorSMC.getMotorControllerConfig()).withVoltage(new VoltageConfigs()
                 .withPeakReverseVoltage(Volts.of(0))));
     }
 
     private Command setPercentOutput(double percentOutput) {
-        return run(()->motorSMC.setDutyCycle(percentOutput));
+        return run(() -> motorSMC.setDutyCycle(percentOutput));
     }
 
     public Command intake() {
@@ -76,10 +74,13 @@ public class Feeder extends SubsystemBase {
     }
 
     @Override
-    public void initSendable(SendableBuilder builder) {
-        builder.addStringProperty("Command", () -> getCurrentCommand() != null ? getCurrentCommand().getName() : "null", null);
-        builder.addDoubleProperty("RPM", () -> motor.getVelocity().getValue().in(RPM), null);
-        builder.addDoubleProperty("Stator Current", () -> motor.getStatorCurrent().getValue().in(Amps), null);
-        builder.addDoubleProperty("Supply Current", () -> motor.getSupplyCurrent().getValue().in(Amps), null);
+    public void periodic() {
+        motorSMC.updateTelemetry();
+
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        motorSMC.simIterate();
     }
 }
