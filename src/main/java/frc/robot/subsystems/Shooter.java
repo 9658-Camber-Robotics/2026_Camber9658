@@ -36,45 +36,50 @@ public class Shooter extends SubsystemBase {
 //            .withMomentOfInertia(YUnits.PoundSquareFeet.of(1));
 
     private final TalonFX leftMotor, middleMotor, rightMotor;
-    private final TalonFXWrapper leftMotorSMC,middleMotorSMC,rightMotorSMC;
+    private final TalonFXWrapper leftMotorSMC, middleMotorSMC, rightMotorSMC;
     private final List<TalonFXWrapper> motors;
 
     public Shooter() {
         leftMotor = new TalonFX(Ports.kShooterLeft, Ports.kRoboRioCANBus);
         middleMotor = new TalonFX(Ports.kShooterMiddle, Ports.kRoboRioCANBus);
         rightMotor = new TalonFX(Ports.kShooterRight, Ports.kRoboRioCANBus);
-        leftMotorSMC = new TalonFXWrapper(leftMotor,DCMotor.getKrakenX60(1), smcConfig.clone().withMotorInverted(false));
-        middleMotorSMC = new TalonFXWrapper(middleMotor,DCMotor.getKrakenX60(1), smcConfig.clone().withMotorInverted(true));
-        rightMotorSMC = new TalonFXWrapper(rightMotor,DCMotor.getKrakenX60(1), smcConfig.clone().withMotorInverted(true));
+        leftMotorSMC = new TalonFXWrapper(leftMotor, DCMotor.getKrakenX60(1), smcConfig.clone().withMotorInverted(false));
+        middleMotorSMC = new TalonFXWrapper(middleMotor, DCMotor.getKrakenX60(1), smcConfig.clone().withMotorInverted(true));
+        rightMotorSMC = new TalonFXWrapper(rightMotor, DCMotor.getKrakenX60(1), smcConfig.clone().withMotorInverted(true));
 
         motors = List.of(leftMotorSMC, middleMotorSMC, rightMotorSMC);
         for (TalonFXWrapper motor : motors) {
-            var cfg = (TalonFXConfiguration)motor.getMotorControllerConfig();
-            var cfgrtr = ((TalonFX)motor.getMotorController()).getConfigurator();
+            var cfg = (TalonFXConfiguration) motor.getMotorControllerConfig();
+            var cfgrtr = ((TalonFX) motor.getMotorController()).getConfigurator();
             cfgrtr.apply(cfg.withVoltage(new VoltageConfigs()
                     .withPeakReverseVoltage(Volts.of(0))));
         }
-
     }
 
-    private void setRPM(AngularVelocity rpm) {
-        for (final TalonFXWrapper motor : motors) {
-            motor.setVelocity(rpm);
-        }
+    private Command setRPM(AngularVelocity rpm) {
+        return run(() -> {
+                    for (final TalonFXWrapper motor : motors) {
+                        motor.setVelocity(rpm);
+                    }
+                }
+        );
     }
 
-    private void setPercentOutput(double percentOutput) {
-        for (final TalonFXWrapper motor : motors) {
-            motor.setDutyCycle(percentOutput);
-        }
+    private Command setPercentOutput(double percentOutput) {
+        return run(() -> {
+                for (final TalonFXWrapper motor : motors) {
+                    motor.setDutyCycle(percentOutput);
+                }
+            }
+        );
     }
 
     public Command shoot() {
-      return run( ()->  setPercentOutput(0.5));
+        return run(() -> setPercentOutput(0.5));
     }
 
     public Command stop() {
-        return run( ()->  setPercentOutput(0));
+        return run(() -> setPercentOutput(0));
     }
 
     public Command spinUpCommand(AngularVelocity rpm) {
@@ -85,7 +90,7 @@ public class Shooter extends SubsystemBase {
     public boolean isVelocityWithinTolerance() {
         return motors.stream().allMatch(motor -> {
 //            final boolean isInVelocityMode = motor.getAppliedControl().equals(velocityRequest);
-            if(motor.getMechanismSetpointVelocity().isEmpty())
+            if (motor.getMechanismSetpointVelocity().isEmpty())
                 return false;
             final AngularVelocity currentVelocity = motor.getMechanismVelocity();
             final AngularVelocity targetVelocity = motor.getMechanismSetpointVelocity().get();
@@ -95,16 +100,14 @@ public class Shooter extends SubsystemBase {
 
     @Override
     public void periodic() {
-        for(var motor : motors) {
+        for (var motor : motors) {
             motor.updateTelemetry();
         }
     }
 
     @Override
-    public void simulationPeriodic()
-    {
-        for (var motor : motors)
-        {
+    public void simulationPeriodic() {
+        for (var motor : motors) {
             motor.simIterate();
         }
     }
