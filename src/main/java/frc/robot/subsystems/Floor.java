@@ -1,80 +1,54 @@
 package frc.robot.subsystems;
 
-import static edu.wpi.first.units.Units.Amps;
-import static edu.wpi.first.units.Units.RPM;
-import static edu.wpi.first.units.Units.Volts;
-
-import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
-import com.ctre.phoenix6.configs.MotorOutputConfigs;
-import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
-import com.ctre.phoenix6.signals.InvertedValue;
-import com.ctre.phoenix6.signals.NeutralModeValue;
 
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Voltage;
-import edu.wpi.first.util.sendable.SendableBuilder;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Ports;
+import yams.motorcontrollers.SmartMotorControllerConfig;
+import yams.motorcontrollers.remote.TalonFXWrapper;
+
+import static edu.wpi.first.units.Units.*;
 
 public class Floor extends SubsystemBase {
-    public enum Speed {
-        STOP(0),
-        FEED(0.83);
-
-        private final double percentOutput;
-
-        private Speed(double percentOutput) {
-            this.percentOutput = percentOutput;
-        }
-
-        public Voltage voltage() {
-            return Volts.of(percentOutput * 12.0);
-        }
-    }
+    private SmartMotorControllerConfig smcConfig = new SmartMotorControllerConfig()
+            .withStatorCurrentLimit(Amps.of(120))
+            .withSupplyCurrentLimit(Amps.of(30))
+            .withIdleMode(SmartMotorControllerConfig.MotorMode.BRAKE);
 
     private final TalonFX motor;
-    private final VoltageOut voltageRequest = new VoltageOut(0);
-
+    private final TalonFXWrapper motorSMC;
     public Floor() {
         motor = new TalonFX(Ports.kFloor, Ports.kRoboRioCANBus);
-
-        final TalonFXConfiguration config = new TalonFXConfiguration()
-            .withMotorOutput(
-                new MotorOutputConfigs()
-                    .withInverted(InvertedValue.Clockwise_Positive)
-                    .withNeutralMode(NeutralModeValue.Brake)
-            )
-            .withCurrentLimits(
-                new CurrentLimitsConfigs()
-                    .withStatorCurrentLimit(Amps.of(120))
-                    .withStatorCurrentLimitEnable(true)
-                    .withSupplyCurrentLimit(Amps.of(30))
-                    .withSupplyCurrentLimitEnable(true)
-            );
-
-        motor.getConfigurator().apply(config);
-        SmartDashboard.putData(this);
+        motorSMC = new TalonFXWrapper(motor, DCMotor.getKrakenX60(1), smcConfig.clone().withMotorInverted(true));
     }
 
-    public void set(Speed speed) {
-        motor.setControl(
-            voltageRequest
-                .withOutput(speed.voltage())
-        );
+    private Command setVelocity(AngularVelocity rpm) {
+        return run(()-> motorSMC.setVelocity(rpm));
     }
-
-    public Command feedCommand() {
-        return startEnd(() -> set(Speed.FEED), () -> set(Speed.STOP));
+    private Command setPercentOutput(double percent) {
+        return run(()-> motorSMC.setDutyCycle(percent));
+    }
+    public Command intake() {
+        return run(()-> setPercentOutput(0.5));
+    }
+    public Command outtake() {
+        return run(()-> setPercentOutput(-0.5));
+    }
+    public Command stop() {
+        return run(()-> setPercentOutput(0));
     }
 
     @Override
-    public void initSendable(SendableBuilder builder) {
-        builder.addStringProperty("Command", () -> getCurrentCommand() != null ? getCurrentCommand().getName() : "null", null);
-        builder.addDoubleProperty("RPM", () -> motor.getVelocity().getValue().in(RPM), null);
-        builder.addDoubleProperty("Stator Current", () -> motor.getStatorCurrent().getValue().in(Amps), null);
-        builder.addDoubleProperty("Supply Current", () -> motor.getSupplyCurrent().getValue().in(Amps), null);
+    public void periodic() {
+        motorSMC.updateTelemetry();
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        motorSMC.simIterate();
     }
 }
