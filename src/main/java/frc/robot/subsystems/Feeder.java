@@ -23,19 +23,6 @@ import java.util.List;
 import static edu.wpi.first.units.Units.*;
 
 public class Feeder extends SubsystemBase {
-    public enum Speed {
-        FEED(5000);
-
-        private final double rpm;
-
-        private Speed(double rpm) {
-            this.rpm = rpm;
-        }
-
-        public AngularVelocity angularVelocity() {
-            return RPM.of(rpm);
-        }
-    }
 
     private final SmartMotorControllerConfig smcConfig = new SmartMotorControllerConfig(this)
             .withClosedLoopController(1, 0, 0)
@@ -76,7 +63,6 @@ public class Feeder extends SubsystemBase {
     @Override
     public void periodic() {
         motorSMC.updateTelemetry();
-
     }
 
     @Override

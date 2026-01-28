@@ -29,22 +29,6 @@ import yams.motorcontrollers.remote.TalonFXWrapper;
 import static edu.wpi.first.units.Units.*;
 
 public class Hanger extends SubsystemBase {
-    public enum Position {
-        HOMED(0),
-        HANGING(6),
-        HUNG(0.2);
-
-        private final double inches;
-
-        private Position(double inches) {
-            this.inches = inches;
-        }
-
-        public Angle motorAngle() {
-            final Measure<AngleUnit> angleMeasure = Inches.of(inches).divideRatio(kHangerExtensionPerMotorAngle);
-            return Rotations.of(angleMeasure.in(Rotations)); // Promote from Measure<AngleUnit> to Angle
-        }
-    }
 
     private static final Distance kExtensionTolerance = Inches.of(1);
     private SmartMotorControllerConfig smcConfig = new SmartMotorControllerConfig()
@@ -55,12 +39,8 @@ public class Hanger extends SubsystemBase {
             .withIdleMode(SmartMotorControllerConfig.MotorMode.BRAKE);
     private Distance circumference = Inches.of(1);
 
-    private static final Per<DistanceUnit, AngleUnit> kHangerExtensionPerMotorAngle = Inches.of(6).div(Rotations.of(142));
-
     private final TalonFX motor;
     private final TalonFXWrapper motorSMC;
-    private final MotionMagicVoltage motionMagicRequest = new MotionMagicVoltage(0).withSlot(0);
-    private final VoltageOut voltageRequest = new VoltageOut(0);
 
     private boolean isHomed = false;
 
@@ -83,16 +63,7 @@ public class Hanger extends SubsystemBase {
 
     //havent made yet, this is stock
     public Command homingCommand() {
-        return Commands.sequence(
-                        runOnce(() -> setPercentOutput(-0.05)),
-                        Commands.waitUntil(() -> motor.getSupplyCurrent().getValue().in(Amps) > 0.4),
-                        runOnce(() -> {
-                            motor.setPosition(Position.HOMED.motorAngle());
-                            isHomed = true;
-                        })
-                )
-                .unless(() -> isHomed)
-                .withInterruptBehavior(InterruptionBehavior.kCancelIncoming);
+        return null;
     }
 
     public boolean isHomed() {
@@ -105,15 +76,9 @@ public class Hanger extends SubsystemBase {
         return motorSMC.getMechanismPosition().isNear(motorSMC.getMechanismPositionSetpoint().orElseThrow(), Rotations.of(kExtensionTolerance.in(Meter) / circumference.in(Meter)));
     }
 
-    private Distance motorAngleToExtension(Angle motorAngle) {
-        final Measure<DistanceUnit> extensionMeasure = motorAngle.timesRatio(kHangerExtensionPerMotorAngle);
-        return Inches.of(extensionMeasure.in(Inches)); // Promote from Measure<DistanceUnit> to Distance
-    }
-
     @Override
     public void periodic() {
         motorSMC.updateTelemetry();
-
     }
 
     @Override
