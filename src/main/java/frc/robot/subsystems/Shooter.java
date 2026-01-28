@@ -68,12 +68,13 @@ public class Shooter extends SubsystemBase {
             motor.setDutyCycle(percentOutput);
         }
     }
-    public void shoot() {
-        setPercentOutput(0.5);
+
+    public Command shoot() {
+      return run( ()->  setPercentOutput(0.5));
     }
 
-    public void stop() {
-        setPercentOutput(0.0);
+    public Command stop() {
+        return run( ()->  setPercentOutput(0));
     }
 
     public Command spinUpCommand(AngularVelocity rpm) {
