@@ -57,8 +57,17 @@ public class Hanger extends SubsystemBase {
         return run(() -> motorSMC.setDutyCycle(percentOutput));
     }
 
-    public Command setPosition(Angle position) {
+    private Command setPosition(Angle position) {
         return run(() -> motorSMC.setPosition(position));
+    }
+
+    //i dont know the values yet
+    public Command extend(Angle position) {
+        return run(() -> setPosition(position));
+    }
+
+    public Command retract(Angle position) {
+        return run(() -> setPosition(position));
     }
 
     //havent made yet
