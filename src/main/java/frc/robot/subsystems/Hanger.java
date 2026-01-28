@@ -61,7 +61,7 @@ public class Hanger extends SubsystemBase {
         return run(() -> motorSMC.setPosition(position));
     }
 
-    //havent made yet, this is stock
+    //havent made yet
     public Command homingCommand() {
         return null;
     }
