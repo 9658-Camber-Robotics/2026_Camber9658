@@ -57,16 +57,19 @@ public class Shooter extends SubsystemBase {
 
     }
 
-    public void setRPM(AngularVelocity rpm) {
+    private void setRPM(AngularVelocity rpm) {
         for (final TalonFXWrapper motor : motors) {
             motor.setVelocity(rpm);
         }
     }
 
-    public void setPercentOutput(double percentOutput) {
+    private void setPercentOutput(double percentOutput) {
         for (final TalonFXWrapper motor : motors) {
             motor.setDutyCycle(percentOutput);
         }
+    }
+    public void shoot() {
+        setPercentOutput(0.5);
     }
 
     public void stop() {
