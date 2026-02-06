@@ -36,7 +36,7 @@ public class Intake extends SubsystemBase {
             .withStatorCurrentLimit(Amps.of(120))
             .withSupplyCurrentLimit(Amps.of(70))
             .withIdleMode(SmartMotorControllerConfig.MotorMode.COAST);
-//            .withMomentOfInertia(YUnits.PoundSquareFeet.of(1));
+//          .withMomentOfInertia(YUnits.PoundSquareFeet.of(1));
 
 
 
