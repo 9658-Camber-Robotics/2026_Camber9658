@@ -85,7 +85,7 @@ public class Intake extends SubsystemBase {
         rollerMotor = new TalonFX(Ports.kIntakeRollers, Ports.kRoboRioCANBus);
         pivotMotorSMC = new  TalonFXWrapper(pivotMotor, DCMotor.getKrakenX60(1), smcConfig.clone().withMotorInverted(false));
         rollerMotorSMC = new TalonFXWrapper(pivotMotor,DCMotor.getKrakenX60(1), smcConfig.clone().withMotorInverted(false));)
-        ///  go back and double check the number are right
+        ///  go back and double check the number are rights
 
         motors = List.of(pivotMotorSMC, rollerMotorSMC);
         for (TalonFXWrapper motor : motors) {
