@@ -14,6 +14,7 @@ import com.ctre.phoenix6.hardware.TalonFX;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -25,14 +26,16 @@ import yams.units.YUnits;
 import static edu.wpi.first.units.Units.*;
 
 public class Shooter extends SubsystemBase {
-    private static final AngularVelocity kVelocityTolerance = RPM.of(100);
+    public static final AngularVelocity kVelocityTolerance = RPM.of(100);
 
     private final SmartMotorControllerConfig smcConfig = new SmartMotorControllerConfig(this)
             .withClosedLoopController(0.5, 2, 0)
             .withFeedforward(new SimpleMotorFeedforward(0, 12.0 / RadiansPerSecond.of(DCMotor.getKrakenX60(1).freeSpeedRadPerSec).in(RotationsPerSecond)))
             .withStatorCurrentLimit(Amps.of(120))
             .withSupplyCurrentLimit(Amps.of(70))
-            .withIdleMode(SmartMotorControllerConfig.MotorMode.COAST);
+            .withIdleMode(SmartMotorControllerConfig.MotorMode.COAST)
+            .withWheelDiameter(Inch.of(4))
+            .withLinearClosedLoopController(false);
 //            .withMomentOfInertia(YUnits.PoundSquareFeet.of(1));
 
     private final TalonFX leftMotor, middleMotor, rightMotor;
@@ -56,7 +59,15 @@ public class Shooter extends SubsystemBase {
         }
     }
 
-    private Command setRPM(AngularVelocity rpm) {
+    public Command setRPM(AngularVelocity rpm) {
+        return run(() -> {
+                    for (final TalonFXWrapper motor : motors) {
+                        motor.setVelocity(rpm);
+                    }
+                }
+        );
+    }
+    public Command setRPM(LinearVelocity rpm) {
         return run(() -> {
                     for (final TalonFXWrapper motor : motors) {
                         motor.setVelocity(rpm);
@@ -73,7 +84,6 @@ public class Shooter extends SubsystemBase {
             }
         );
     }
-
     public Command shoot() {
         return run(() -> setPercentOutput(0.5));
     }
@@ -97,6 +107,7 @@ public class Shooter extends SubsystemBase {
             return currentVelocity.isNear(targetVelocity, kVelocityTolerance);
         });
     }
+    public SmartMotorControllerConfig getSMCConfig() {return smcConfig.clone();}
 
     @Override
     public void periodic() {

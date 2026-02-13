@@ -4,6 +4,7 @@
 
 package frc.robot.subsystems;
 
+import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -74,40 +75,6 @@ public class SwerveSubsystem extends SubsystemBase {
             throw new RuntimeException(e);
         }
         setupPathPlanner();
-    }
-
-    /**
-     * Example command factory method.
-     *
-     * @return a command
-     */
-    public Command exampleMethodCommand() {
-        // Inline construction of command goes here.
-        // Subsystem::RunOnce implicitly requires `this` subsystem.
-        return runOnce(
-                () -> {
-                    /* one-time action goes here */
-                });
-    }
-
-    /**
-     * An example method querying a boolean state of the subsystem (for example, a digital sensor).
-     *
-     * @return value of some boolean subsystem state, such as a digital sensor.
-     */
-    public boolean exampleCondition() {
-        // Query some boolean state, such as a digital sensor.
-        return false;
-    }
-
-    @Override
-    public void periodic() {
-        // This method will be called once per scheduler run
-    }
-
-    @Override
-    public void simulationPeriodic() {
-        // This method will be called once per scheduler run during simulation
     }
 
     public SwerveDrive getSwerveDrive() {
@@ -196,7 +163,6 @@ public class SwerveSubsystem extends SubsystemBase {
         return new PathPlannerAuto(pathName);
     }
 
-
     public Command sysIdDriveMotorCommand() {
         return SwerveDriveTest.generateSysIdCommand(
                 SwerveDriveTest.setDriveSysIdRoutine(
@@ -204,7 +170,6 @@ public class SwerveSubsystem extends SubsystemBase {
                         this, swerveDrive, 12, true),
                 3.0, 5.0, 3.0);
     }
-
 
     public Command driveToPose(Pose2d pose) {
 // Create the constraints to use while pathfinding
@@ -219,7 +184,6 @@ public class SwerveSubsystem extends SubsystemBase {
                 edu.wpi.first.units.Units.MetersPerSecond.of(0) // Goal end velocity in meters/sec
         );
     }
-
 
     /**
      * Drive with {@link SwerveSetpointGenerator} from 254, implemented by PathPlanner.
@@ -253,7 +217,6 @@ public class SwerveSubsystem extends SubsystemBase {
 
                 });
     }
-
 
     /**
      * Drive with 254's Setpoint generator; port written by PathPlanner.
@@ -293,4 +256,9 @@ public class SwerveSubsystem extends SubsystemBase {
         return swerveDrive.getPose();
     }
 
+    public ChassisSpeeds getFieldOrientedChassisSpeed() {return swerveDrive.getFieldVelocity();}
+
+    public void driveRobotRelative(ChassisSpeeds robotRelativeChassisSpeed) {
+        swerveDrive.drive(robotRelativeChassisSpeed);
+    }
 }
